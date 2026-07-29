@@ -30,6 +30,86 @@ class BootstrapTests(TestCase):
         self.assertIn("function deleteProject", renderer)
         self.assertIn("function deleteTask", renderer)
 
+    def test_project_view_exposes_operational_dashboard_and_task_reordering(self) -> None:
+        renderer = (Path(__file__).parent / "app.js").read_text(encoding="utf-8")
+
+        for dashboard_feature in (
+            "function projectView",
+            "COMPLETED",
+            "IN PROGRESS",
+            "RECENT ACTIVITY",
+            "CURRENT OBJECTIVE",
+            "function bindTaskReorder",
+            'draggable="true"',
+            "reorder project tasks",
+        ):
+            self.assertIn(dashboard_feature, renderer)
+
+    def test_task_view_exposes_brief_delivery_and_completion_path(self) -> None:
+        renderer = (Path(__file__).parent / "app.js").read_text(encoding="utf-8")
+
+        for task_feature in (
+            "function taskDetailView",
+            "COMPLETION PATH",
+            "WHAT NEEDS TO HAPPEN",
+            "DELIVERY WORKSPACE",
+            "FINAL CONFIRMED RESULT",
+            "function advanceSelectedTask",
+            "advance task status",
+        ):
+            self.assertIn(task_feature, renderer)
+
+    def test_github_auto_match_imports_closed_pull_requests_as_completed_tasks(self) -> None:
+        root = Path(__file__).parent
+        renderer = (root / "app.js").read_text(encoding="utf-8")
+        electron = (root / "main.js").read_text(encoding="utf-8")
+        preload = (root / "preload.js").read_text(encoding="utf-8")
+
+        self.assertIn("function findRepositoryByName", electron)
+        self.assertIn("state=closed", electron)
+        self.assertIn("github:match-completed", electron)
+        self.assertIn("matchCompletedPullRequests", preload)
+        self.assertIn("async function autoMatchProject", renderer)
+        self.assertIn("status:'Completed'", renderer)
+        self.assertIn("githubRef", renderer)
+        self.assertIn("sync completed GitHub pull requests", renderer)
+
+    def test_tasks_are_visually_separated_and_databank_records_follow_lifecycle(self) -> None:
+        root = Path(__file__).parent
+        renderer = (root / "app.js").read_text(encoding="utf-8")
+        styles = (root / "styles.css").read_text(encoding="utf-8")
+
+        for feature in (
+            "DO THIS NOW",
+            "ACTIVE EXECUTION PLAN",
+            "COMPLETED WORK",
+            "function ensureDatabankRecord",
+            "function reconcileCompletedTasks",
+            "record.taskId!==id",
+        ):
+            self.assertIn(feature, renderer)
+        self.assertIn(".status.completed,.status.approved", styles)
+        self.assertIn("color:var(--danger)", styles)
+        self.assertIn("@keyframes signal", styles)
+
+    def test_tasks_tab_has_separate_active_and_completed_operations(self) -> None:
+        root = Path(__file__).parent
+        renderer = (root / "app.js").read_text(encoding="utf-8")
+        styles = (root / "styles.css").read_text(encoding="utf-8")
+
+        for feature in (
+            "Execution queue.",
+            "ACTIVE QUEUE",
+            "NEEDS ACTION",
+            "COMPLETED TASKS",
+            "TOP OF THE EXECUTION QUEUE",
+            "active.map",
+            "completed.map",
+        ):
+            self.assertIn(feature, renderer)
+        self.assertIn(".task-board", styles)
+        self.assertIn(".operation-task.is-completed", styles)
+
     def test_find_npm_prefers_windows_command_shim(self) -> None:
         locations = {
             "npm.cmd": r"C:\Program Files\nodejs\npm.cmd",
