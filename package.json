@@ -2,11 +2,12 @@
   "name": "crowdnet-manager",
   "version": "0.1.0",
   "private": true,
-  "description": "CrowdNet Manager secure desktop portal",
+  "description": "Private bridge-backed business development command center",
   "main": "main.js",
   "scripts": {
     "start": "electron main.js",
-    "check": "node --check main.js"
+    "check": "node --check main.js && node --check preload.js && node --check app.js",
+    "test": "python -m unittest -v"
   },
   "devDependencies": {
     "electron": "^37.2.3"
