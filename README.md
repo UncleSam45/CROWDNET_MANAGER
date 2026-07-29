@@ -1,0 +1,3 @@
+# CROWDNET_MANAGER
+
+A Python project created with FRONTLINE COREBUILDER.
