@@ -7,6 +7,29 @@ import main
 
 
 class BootstrapTests(TestCase):
+    def test_renderer_starts_without_demo_workspace_records(self) -> None:
+        renderer = (Path(__file__).parent / "app.js").read_text(encoding="utf-8")
+
+        self.assertIn("projects: [], tasks: [], databank: [], people: [], activity: []", renderer)
+        self.assertNotIn("Project Orbit", renderer)
+        self.assertNotIn("Atlas Partnership", renderer)
+        self.assertNotIn("Preliminary delivery conditions", renderer)
+
+    def test_renderer_migrates_legacy_demo_ids_and_exposes_crud_controls(self) -> None:
+        renderer = (Path(__file__).parent / "app.js").read_text(encoding="utf-8")
+
+        for demo_id in ("project-orbit", "project-atlas", "task-delivery", "task-partners"):
+            self.assertIn(demo_id, renderer)
+        for control in (
+            "data-edit-project",
+            "data-delete-project",
+            "data-edit-task",
+            "data-delete-task",
+        ):
+            self.assertIn(control, renderer)
+        self.assertIn("function deleteProject", renderer)
+        self.assertIn("function deleteTask", renderer)
+
     def test_find_npm_prefers_windows_command_shim(self) -> None:
         locations = {
             "npm.cmd": r"C:\Program Files\nodejs\npm.cmd",
