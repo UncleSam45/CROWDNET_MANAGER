@@ -30,6 +30,21 @@ class BootstrapTests(TestCase):
         self.assertIn("function deleteProject", renderer)
         self.assertIn("function deleteTask", renderer)
 
+    def test_project_view_exposes_operational_dashboard_and_task_reordering(self) -> None:
+        renderer = (Path(__file__).parent / "app.js").read_text(encoding="utf-8")
+
+        for dashboard_feature in (
+            "function projectView",
+            "COMPLETED",
+            "IN PROGRESS",
+            "RECENT ACTIVITY",
+            "CURRENT OBJECTIVE",
+            "function bindTaskReorder",
+            'draggable="true"',
+            "reorder project tasks",
+        ):
+            self.assertIn(dashboard_feature, renderer)
+
     def test_find_npm_prefers_windows_command_shim(self) -> None:
         locations = {
             "npm.cmd": r"C:\Program Files\nodejs\npm.cmd",
