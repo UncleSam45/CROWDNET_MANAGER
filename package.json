@@ -1,0 +1,14 @@
+{
+  "name": "crowdnet-manager",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CrowdNet Manager secure desktop portal",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron main.js",
+    "check": "node --check main.js"
+  },
+  "devDependencies": {
+    "electron": "^37.2.3"
+  }
+}
