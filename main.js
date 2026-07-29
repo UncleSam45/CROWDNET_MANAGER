@@ -94,6 +94,40 @@ async function writeWorkspace(event, payload) {
   }
 }
 
+async function findRepositoryByName(projectName) {
+  const wanted = projectName.toLocaleLowerCase('en-US');
+  for (let page = 1; page <= 10; page++) {
+    const repositories = await github(`/user/repos?affiliation=owner,collaborator,organization_member&sort=updated&per_page=100&page=${page}`);
+    const match = repositories.find(repository => repository.name.toLocaleLowerCase('en-US') === wanted);
+    if (match) return match;
+    if (repositories.length < 100) break;
+  }
+  return null;
+}
+
+async function matchCompletedPullRequests(event, input) {
+  trusted(event);
+  const projectName = String(input?.projectName || '').trim().slice(0, 100);
+  if (!projectName) throw new Error('A project name is required for GitHub matching.');
+  const repository = await findRepositoryByName(projectName);
+  if (!repository) return { matched: false, pullRequests: [] };
+  const pullRequests = [];
+  for (let page = 1; page <= 10; page++) {
+    const batch = await github(`/repos/${repository.full_name}/pulls?state=closed&sort=updated&direction=desc&per_page=100&page=${page}`);
+    pullRequests.push(...batch.map(pull => ({
+      number: pull.number, title: pull.title, body: pull.body || '', url: pull.html_url,
+      author: pull.user?.login || 'GitHub contributor', createdAt: pull.created_at,
+      closedAt: pull.closed_at, mergedAt: pull.merged_at,
+    })));
+    if (batch.length < 100) break;
+  }
+  return {
+    matched: true,
+    repository: { name: repository.name, fullName: repository.full_name, url: repository.html_url },
+    pullRequests,
+  };
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1500, height: 940, minWidth: 900, minHeight: 650, backgroundColor: '#06070c',
@@ -114,6 +148,7 @@ app.whenReady().then(() => {
   ipcMain.handle('bridge:authenticate', authenticate);
   ipcMain.handle('bridge:read', readWorkspace);
   ipcMain.handle('bridge:write', writeWorkspace);
+  ipcMain.handle('github:match-completed', matchCompletedPullRequests);
   createWindow();
   app.on('activate', () => BrowserWindow.getAllWindows().length || createWindow());
 });
