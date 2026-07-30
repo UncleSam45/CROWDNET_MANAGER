@@ -18,8 +18,9 @@ source of completed tasks; issues from those target repositories are ignored.
 The **Info** tab is a shared documentation library. Members can give a document
 a title and upload a PDF of up to 20 MB; the file is committed to the private
 Bridge under `documentation/`, while its title and audit metadata are kept in
-the synchronized workspace. Documents can be opened with the system PDF viewer
-or removed from both the library and Bridge.
+the synchronized workspace. Documents open in an animated, full-workspace PDF
+reader without leaving the application, and can be removed from both the
+library and Bridge.
 
 ## Start
 

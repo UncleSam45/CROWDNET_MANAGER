@@ -146,14 +146,20 @@ class BootstrapTests(TestCase):
         self.assertIn("function documentationDialog", renderer)
         self.assertIn("documentation: [],", renderer)
         self.assertIn("uploadDocumentation", preload)
-        self.assertIn("openDocumentation", preload)
+        self.assertIn("prepareDocumentation", preload)
         self.assertIn("deleteDocumentation", preload)
         self.assertIn("documentation:upload", electron)
-        self.assertIn("documentation:open", electron)
+        self.assertIn("documentation:prepare", electron)
         self.assertIn("documentation:delete", electron)
         self.assertIn("application/vnd.github.raw+json", electron)
         self.assertIn("'%PDF-'", electron)
         self.assertIn("20 * 1024 * 1024", electron)
+        self.assertIn('id="documentViewer"', html)
+        self.assertIn("function closeDocumentViewer", renderer)
+        self.assertIn("crowdnet-document://viewer/", electron)
+        self.assertIn("protocol.handle('crowdnet-document'", electron)
+        self.assertIn("Content-Disposition': 'inline", electron)
+        self.assertNotIn("shell.openPath", electron)
 
     def test_find_npm_prefers_windows_command_shim(self) -> None:
         locations = {

@@ -1,12 +1,15 @@
 'use strict';
 
-const { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, protocol, safeStorage, shell } = require('electron');
+const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
 const BRIDGE = 'UNCLESAM45/CROWDNET_MANAGER_BRIDGE';
 let session = null;
 const trustedWebContents = new Set();
+const preparedDocuments = new Map();
+protocol.registerSchemesAsPrivileged([{ scheme: 'crowdnet-document', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 const credentialsPath = () => path.join(app.getPath('userData'), 'credentials.bin');
 const cachePath = () => path.join(app.getPath('userData'), 'workspace-cache.json');
 
@@ -206,16 +209,22 @@ async function uploadDocumentation(event, input) {
   return { canceled: false, path: repoPath, sha: result.content.sha, size: content.length, fileName: path.basename(filePath) };
 }
 
-async function openDocumentation(event, input) {
+async function prepareDocumentation(event, input) {
   trusted(event);
   const content = await githubBytes(`/repos/${BRIDGE}/contents/${documentationPath(input?.id)}`);
-  const directory = path.join(app.getPath('userData'), 'documentation');
-  const localPath = path.join(directory, `${String(input?.id)}.pdf`);
-  await fs.mkdir(directory, { recursive: true });
-  await fs.writeFile(localPath, content);
-  const error = await shell.openPath(localPath);
-  if (error) throw new Error(error);
-  return { opened: true };
+  if (content.length > 20 * 1024 * 1024 || content.subarray(0, 5).toString() !== '%PDF-') throw new Error('The Bridge file is not a valid supported PDF.');
+  const token = crypto.randomUUID();
+  const expiresAt = Date.now() + 10 * 60 * 1000;
+  preparedDocuments.set(token, { content, expiresAt });
+  setTimeout(() => preparedDocuments.delete(token), 10 * 60 * 1000).unref();
+  return { url: `crowdnet-document://viewer/${token}.pdf`, size: content.length };
+}
+
+function servePreparedDocument(request) {
+  const token = new URL(request.url).pathname.split('/').pop()?.replace(/\.pdf$/, '');
+  const document = preparedDocuments.get(token);
+  if (!document || document.expiresAt < Date.now()) return new Response('Document session expired.', { status: 404 });
+  return new Response(document.content, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': 'inline', 'Cache-Control': 'no-store' } });
 }
 
 async function deleteDocumentation(event, input) {
@@ -230,7 +239,7 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1500, height: 940, minWidth: 900, minHeight: 650, backgroundColor: '#06070c',
     title: 'CROWDNET Manager', autoHideMenuBar: true, show: false,
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, preload: path.join(__dirname, 'preload.js') },
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, plugins: true, preload: path.join(__dirname, 'preload.js') },
   });
   const webContentsId = win.webContents.id;
   trustedWebContents.add(webContentsId);
@@ -242,6 +251,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  protocol.handle('crowdnet-document', servePreparedDocument);
   ipcMain.handle('credentials:load', loadCredentials);
   ipcMain.handle('bridge:authenticate', authenticate);
   ipcMain.handle('bridge:read', readWorkspace);
@@ -251,7 +261,7 @@ app.whenReady().then(() => {
   ipcMain.handle('github:create-bridge-issue', createBridgeIssue);
   ipcMain.handle('github:update-bridge-issue', updateBridgeIssue);
   ipcMain.handle('documentation:upload', uploadDocumentation);
-  ipcMain.handle('documentation:open', openDocumentation);
+  ipcMain.handle('documentation:prepare', prepareDocumentation);
   ipcMain.handle('documentation:delete', deleteDocumentation);
   createWindow();
   app.on('activate', () => BrowserWindow.getAllWindows().length || createWindow());

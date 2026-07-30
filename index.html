@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; frame-src crowdnet-document:; connect-src 'none'">
   <title>CROWDNET Manager</title><link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -17,6 +17,12 @@
     <section class="shell"><header><div><p class="mono" id="breadcrumb">CROWDNET / COMMAND CENTER</p><h2 id="viewTitle">Good evening, Sam.</h2></div><div class="header-actions"><button id="restore" class="ghost">↻ RESTORE</button><span id="sync" class="sync saved"><i></i>SAVED</span><button id="newProject" class="primary">＋ NEW PROJECT</button></div></header><div id="content" class="content"></div></section>
   </main>
   <dialog id="modal"><form method="dialog" class="modal-head"><span class="mono">FOCUSED WORKSPACE</span><button value="cancel">×</button></form><div id="modalBody"></div></dialog>
+  <section id="documentViewer" class="document-viewer" aria-hidden="true" aria-label="PDF document viewer">
+    <div class="viewer-scrim"></div><div class="viewer-shell">
+      <header class="viewer-toolbar"><div><p class="mono">CROWDNET / INFO / DOCUMENT VIEWER</p><h2 id="viewerTitle">Documentation</h2></div><div class="viewer-controls"><span id="viewerStatus">LOADING FROM BRIDGE</span><button id="closeViewer" class="ghost" aria-label="Close document">CLOSE ×</button></div></header>
+      <div class="viewer-stage"><div class="viewer-loader"><div class="pdf-orbit"><b>PDF</b></div><p>DECRYPTING OPERATIONAL KNOWLEDGE</p><span>Retrieving the secured file from the private Bridge…</span></div><iframe id="pdfFrame" title="PDF document content"></iframe></div>
+    </div>
+  </section>
   <div id="toast" role="status"></div>
   <script src="app.js"></script>
 </body></html>
