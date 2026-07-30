@@ -97,7 +97,7 @@ class BootstrapTests(TestCase):
         self.assertIn("createBridgeIssue", preload)
         self.assertIn("updateBridgeIssue", preload)
         self.assertIn("async function syncBridgeIssues", renderer)
-        self.assertIn("GitHub Bridge issue", renderer)
+        self.assertIn("Server issue", renderer)
         self.assertIn("state:completed?'closed':'open'", renderer)
 
     def test_remote_issue_closure_is_polled_and_persisted_locally(self) -> None:
@@ -171,6 +171,44 @@ class BootstrapTests(TestCase):
         self.assertIn("protocol.handle('crowdnet-document'", electron)
         self.assertIn("Content-Disposition': 'inline", electron)
         self.assertNotIn("shell.openPath", electron)
+
+    def test_board_renders_project_lanes_owner_colors_and_task_paths(self) -> None:
+        root = Path(__file__).parent
+        renderer = (root / "app.js").read_text(encoding="utf-8")
+        styles = (root / "styles.css").read_text(encoding="utf-8")
+        html = (root / "index.html").read_text(encoding="utf-8")
+
+        self.assertIn('data-view="board"', html)
+        for feature in ("function boardView", "data-person-color", "function drawBoardPaths", "boardPaths", "postit-track"):
+            self.assertIn(feature, renderer)
+        for selector in (".visual-board", ".board-project", ".postit", ".people-palette"):
+            self.assertIn(selector, styles)
+
+    def test_project_surfaces_show_animated_server_telemetry(self) -> None:
+        root = Path(__file__).parent
+        renderer = (root / "app.js").read_text(encoding="utf-8")
+        styles = (root / "styles.css").read_text(encoding="utf-8")
+
+        self.assertIn("function projectServer", renderer)
+        self.assertIn("project-command-bar", renderer)
+        self.assertGreaterEqual(renderer.count("projectServer("), 6)
+        for feature in (".server-indicator", ".server-core", "@keyframes serverScan", "@keyframes serverOrbit", ".project-command-bar"):
+            self.assertIn(feature, styles)
+
+    def test_projects_can_route_private_data_to_access_key_servers(self) -> None:
+        root = Path(__file__).parent
+        renderer = (root / "app.js").read_text(encoding="utf-8")
+        electron = (root / "main.js").read_text(encoding="utf-8")
+        preload = (root / "preload.js").read_text(encoding="utf-8")
+
+        self.assertIn("/bridge/i.test(repo.name)", electron)
+        self.assertIn("function readProjectServer", electron)
+        self.assertIn("function writeProjectServer", electron)
+        self.assertIn("readProjectServer", preload)
+        self.assertIn("writeProjectServer", preload)
+        self.assertIn("function hydrateProjectServers", renderer)
+        self.assertIn("function accessDeniedView", renderer)
+        self.assertIn("CROWDNET PRIMARY SERVER", renderer)
 
     def test_find_npm_prefers_windows_command_shim(self) -> None:
         locations = {
