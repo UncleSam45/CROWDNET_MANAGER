@@ -30,6 +30,12 @@ Install [Node.js 20+](https://nodejs.org/) and run:
 python main.py
 ```
 
+The interface can also be served by any static web server and opened in a
+modern browser (for example, `python -m http.server 8000`). The browser adapter
+connects directly to GitHub after sign-in; the access key is retained in memory
+only and is discarded when the tab closes. Secure credential remembering and
+the offline desktop cache remain Electron-only features.
+
 On first launch, the Python entry point installs the local Electron runtime.
 Later launches reuse it. The access key is verified against the private bridge
 repository using GitHub's API. Credentials remain in memory unless **Remember

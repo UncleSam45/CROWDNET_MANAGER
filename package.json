@@ -6,7 +6,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron main.js",
-    "check": "node --check main.js && node --check preload.js && node --check app.js",
+    "check": "node --check main.js && node --check preload.js && node --check browser-bridge.js && node --check app.js",
     "test": "python -m unittest -v"
   },
   "devDependencies": {

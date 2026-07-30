@@ -7,6 +7,17 @@ import main
 
 
 class BootstrapTests(TestCase):
+    def test_browser_build_installs_github_bridge_before_renderer(self) -> None:
+        root = Path(__file__).parent
+        html = (root / "index.html").read_text(encoding="utf-8")
+        browser_bridge = (root / "browser-bridge.js").read_text(encoding="utf-8")
+
+        self.assertLess(html.index('src="browser-bridge.js"'), html.index('src="app.js"'))
+        self.assertIn("if (!window.crowdnet)", browser_bridge)
+        self.assertIn("authenticate: async", browser_bridge)
+        self.assertIn("https://api.github.com", browser_bridge)
+        self.assertIn("connect-src https://api.github.com", html)
+
     def test_renderer_starts_without_demo_workspace_records(self) -> None:
         renderer = (Path(__file__).parent / "app.js").read_text(encoding="utf-8")
 
