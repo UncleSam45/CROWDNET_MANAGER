@@ -10,6 +10,6 @@ contextBridge.exposeInMainWorld('crowdnet', Object.freeze({
   createBridgeIssue: input => ipcRenderer.invoke('github:create-bridge-issue', input),
   updateBridgeIssue: input => ipcRenderer.invoke('github:update-bridge-issue', input),
   uploadDocumentation: input => ipcRenderer.invoke('documentation:upload', input),
-  openDocumentation: input => ipcRenderer.invoke('documentation:open', input),
+  readDocumentation: input => ipcRenderer.invoke('documentation:read', input),
   deleteDocumentation: input => ipcRenderer.invoke('documentation:delete', input),
 }));

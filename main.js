@@ -206,16 +206,11 @@ async function uploadDocumentation(event, input) {
   return { canceled: false, path: repoPath, sha: result.content.sha, size: content.length, fileName: path.basename(filePath) };
 }
 
-async function openDocumentation(event, input) {
+async function readDocumentation(event, input) {
   trusted(event);
   const content = await githubBytes(`/repos/${BRIDGE}/contents/${documentationPath(input?.id)}`);
-  const directory = path.join(app.getPath('userData'), 'documentation');
-  const localPath = path.join(directory, `${String(input?.id)}.pdf`);
-  await fs.mkdir(directory, { recursive: true });
-  await fs.writeFile(localPath, content);
-  const error = await shell.openPath(localPath);
-  if (error) throw new Error(error);
-  return { opened: true };
+  if (content.length > 20 * 1024 * 1024 || content.subarray(0, 5).toString() !== '%PDF-') throw new Error('The Bridge file is not a valid supported PDF.');
+  return { base64: content.toString('base64'), mimeType: 'application/pdf', size: content.length };
 }
 
 async function deleteDocumentation(event, input) {
@@ -251,7 +246,7 @@ app.whenReady().then(() => {
   ipcMain.handle('github:create-bridge-issue', createBridgeIssue);
   ipcMain.handle('github:update-bridge-issue', updateBridgeIssue);
   ipcMain.handle('documentation:upload', uploadDocumentation);
-  ipcMain.handle('documentation:open', openDocumentation);
+  ipcMain.handle('documentation:read', readDocumentation);
   ipcMain.handle('documentation:delete', deleteDocumentation);
   createWindow();
   app.on('activate', () => BrowserWindow.getAllWindows().length || createWindow());
