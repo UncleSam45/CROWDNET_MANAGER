@@ -111,6 +111,43 @@ async function writeWorkspace(event, payload) {
   }
 }
 
+function serverName(value = BRIDGE) {
+  const name = String(value || BRIDGE);
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]*bridge[A-Za-z0-9_.-]*$/i.test(name)) throw new Error('Invalid project server.');
+  return name;
+}
+
+async function listServers(event) {
+  trusted(event);
+  const servers = [];
+  for (let page = 1; page <= 10; page++) {
+    const batch = await github(`/user/repos?affiliation=owner,collaborator,organization_member&sort=updated&per_page=100&page=${page}`);
+    servers.push(...batch.filter(repo => /bridge/i.test(repo.name)).map(repo => ({ id: repo.full_name, name: repo.name })));
+    if (batch.length < 100) break;
+  }
+  return { servers };
+}
+
+function projectServerPath(id) {
+  const safe = String(id || '');
+  if (!/^[a-z0-9-]{8,80}$/i.test(safe)) throw new Error('Invalid project identifier.');
+  return `system/projects/${safe}.json`;
+}
+
+async function readProjectServer(event, input) {
+  trusted(event);
+  const repository = serverName(input?.server), file = await github(`/repos/${repository}/contents/${projectServerPath(input?.projectId)}`);
+  return { data: JSON.parse(Buffer.from(file.content, 'base64').toString('utf8')), sha: file.sha, server: repository };
+}
+
+async function writeProjectServer(event, input) {
+  trusted(event);
+  const repository = serverName(input?.server), body = { message: `CROWDNET: update project workspace`, content: Buffer.from(JSON.stringify(input.data, null, 2)).toString('base64') };
+  if (input.sha) body.sha = input.sha;
+  try { const result = await github(`/repos/${repository}/contents/${projectServerPath(input?.projectId)}`, { method: 'PUT', body: JSON.stringify(body) }); return { sha: result.content.sha }; }
+  catch (error) { if (error.status === 409 || error.status === 422) return { conflict: true }; throw error; }
+}
+
 async function findRepositoryByName(projectName) {
   const wanted = projectName.toLocaleLowerCase('en-US');
   for (let page = 1; page <= 10; page++) {
@@ -153,22 +190,24 @@ function issuePayload(issue) {
   };
 }
 
-async function listBridgeIssues(event) {
+async function listBridgeIssues(event, input) {
   trusted(event);
+  const repository = serverName(input?.server);
   const issues = [];
   for (let page = 1; page <= 10; page++) {
-    const batch = await github(`/repos/${BRIDGE}/issues?state=all&sort=updated&direction=desc&per_page=100&page=${page}`);
+    const batch = await github(`/repos/${repository}/issues?state=all&sort=updated&direction=desc&per_page=100&page=${page}`);
     issues.push(...batch.filter(issue => !issue.pull_request).map(issuePayload));
     if (batch.length < 100) break;
   }
-  return { repository: BRIDGE, issues };
+  return { repository, issues };
 }
 
 async function createBridgeIssue(event, input) {
   trusted(event);
   const title = String(input?.title || '').trim().slice(0, 256);
   if (!title) throw new Error('A task title is required.');
-  const issue = await github(`/repos/${BRIDGE}/issues`, {
+  const repository = serverName(input?.server);
+  const issue = await github(`/repos/${repository}/issues`, {
     method: 'POST', body: JSON.stringify({ title, body: String(input?.body || '') }),
   });
   return issuePayload(issue);
@@ -182,7 +221,8 @@ async function updateBridgeIssue(event, input) {
   if (input.title !== undefined) body.title = String(input.title).trim().slice(0, 256);
   if (input.body !== undefined) body.body = String(input.body);
   if (input.state === 'open' || input.state === 'closed') body.state = input.state;
-  const issue = await github(`/repos/${BRIDGE}/issues/${number}`, { method: 'PATCH', body: JSON.stringify(body) });
+  const repository = serverName(input?.server);
+  const issue = await github(`/repos/${repository}/issues/${number}`, { method: 'PATCH', body: JSON.stringify(body) });
   return issuePayload(issue);
 }
 
@@ -256,6 +296,9 @@ app.whenReady().then(() => {
   ipcMain.handle('bridge:authenticate', authenticate);
   ipcMain.handle('bridge:read', readWorkspace);
   ipcMain.handle('bridge:write', writeWorkspace);
+  ipcMain.handle('servers:list', listServers);
+  ipcMain.handle('servers:project-read', readProjectServer);
+  ipcMain.handle('servers:project-write', writeProjectServer);
   ipcMain.handle('github:match-completed', matchCompletedPullRequests);
   ipcMain.handle('github:bridge-issues', listBridgeIssues);
   ipcMain.handle('github:create-bridge-issue', createBridgeIssue);

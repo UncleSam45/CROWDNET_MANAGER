@@ -84,6 +84,20 @@ if (!window.crowdnet) {
         throw error;
       }
     },
+    listServers: async () => {
+      const repositories = await github('/user/repos?affiliation=owner,collaborator,organization_member&sort=updated&per_page=100');
+      return { servers: repositories.filter(repo => /bridge/i.test(repo.name)).map(repo => ({ id: repo.full_name, name: repo.name })) };
+    },
+    readProjectServer: async input => {
+      const file = await github(`/repos/${input.server}/contents/system/projects/${input.projectId}.json`);
+      return { data: JSON.parse(decode(file.content)), sha: file.sha, server: input.server };
+    },
+    writeProjectServer: async input => {
+      const body = { message: 'CROWDNET: update project workspace', content: encode(JSON.stringify(input.data, null, 2)) };
+      if (input.sha) body.sha = input.sha;
+      try { const result = await github(`/repos/${input.server}/contents/system/projects/${input.projectId}.json`, { method: 'PUT', body: JSON.stringify(body) }); return { sha: result.content.sha }; }
+      catch (error) { if (error.status === 409 || error.status === 422) return { conflict: true }; throw error; }
+    },
     matchCompletedPullRequests: async projectName => {
       const wanted = String(projectName).trim().toLocaleLowerCase('en-US');
       const repositories = await github('/user/repos?affiliation=owner,collaborator,organization_member&sort=updated&per_page=100');
@@ -92,12 +106,13 @@ if (!window.crowdnet) {
       const pulls = await github(`/repos/${repository.full_name}/pulls?state=closed&sort=updated&direction=desc&per_page=100`);
       return { matched: true, repository: { name: repository.name, fullName: repository.full_name, url: repository.html_url }, pullRequests: pulls.map(pull => ({ number: pull.number, title: pull.title, body: pull.body || '', url: pull.html_url, author: pull.user?.login || 'GitHub contributor', createdAt: pull.created_at, closedAt: pull.closed_at, mergedAt: pull.merged_at })) };
     },
-    listBridgeIssues: async () => {
-      const issues = await github(`/repos/${BRIDGE}/issues?state=all&sort=updated&direction=desc&per_page=100`);
-      return { repository: BRIDGE, issues: issues.filter(issue => !issue.pull_request).map(issuePayload) };
+    listBridgeIssues: async input => {
+      const repository = input?.server || BRIDGE;
+      const issues = await github(`/repos/${repository}/issues?state=all&sort=updated&direction=desc&per_page=100`);
+      return { repository, issues: issues.filter(issue => !issue.pull_request).map(issuePayload) };
     },
-    createBridgeIssue: async input => issuePayload(await github(`/repos/${BRIDGE}/issues`, { method: 'POST', body: JSON.stringify({ title: String(input?.title || '').trim().slice(0, 256), body: String(input?.body || '') }) })),
-    updateBridgeIssue: async input => issuePayload(await github(`/repos/${BRIDGE}/issues/${Number(input?.number)}`, { method: 'PATCH', body: JSON.stringify({ title: input.title, body: input.body, state: input.state }) })),
+    createBridgeIssue: async input => issuePayload(await github(`/repos/${input?.server || BRIDGE}/issues`, { method: 'POST', body: JSON.stringify({ title: String(input?.title || '').trim().slice(0, 256), body: String(input?.body || '') }) })),
+    updateBridgeIssue: async input => issuePayload(await github(`/repos/${input?.server || BRIDGE}/issues/${Number(input?.number)}`, { method: 'PATCH', body: JSON.stringify({ title: input.title, body: input.body, state: input.state }) })),
     uploadDocumentation: async input => {
       const file = await choosePdf();
       if (!file) return { canceled: true };
