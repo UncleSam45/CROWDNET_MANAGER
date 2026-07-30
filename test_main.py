@@ -10,7 +10,7 @@ class BootstrapTests(TestCase):
     def test_renderer_starts_without_demo_workspace_records(self) -> None:
         renderer = (Path(__file__).parent / "app.js").read_text(encoding="utf-8")
 
-        self.assertIn("projects: [], tasks: [], databank: [], people: [], activity: []", renderer)
+        self.assertIn("projects: [], tasks: [], databank: [], documentation: [], people: [], activity: []", renderer)
         self.assertNotIn("Project Orbit", renderer)
         self.assertNotIn("Atlas Partnership", renderer)
         self.assertNotIn("Preliminary delivery conditions", renderer)
@@ -133,6 +133,27 @@ class BootstrapTests(TestCase):
             self.assertIn(feature, renderer)
         self.assertIn(".task-board", styles)
         self.assertIn(".operation-task.is-completed", styles)
+
+    def test_info_tab_uploads_and_opens_bridge_backed_pdf_documentation(self) -> None:
+        root = Path(__file__).parent
+        renderer = (root / "app.js").read_text(encoding="utf-8")
+        electron = (root / "main.js").read_text(encoding="utf-8")
+        preload = (root / "preload.js").read_text(encoding="utf-8")
+        html = (root / "index.html").read_text(encoding="utf-8")
+
+        self.assertIn('data-view="info"', html)
+        self.assertIn("function infoView", renderer)
+        self.assertIn("function documentationDialog", renderer)
+        self.assertIn("documentation: [],", renderer)
+        self.assertIn("uploadDocumentation", preload)
+        self.assertIn("openDocumentation", preload)
+        self.assertIn("deleteDocumentation", preload)
+        self.assertIn("documentation:upload", electron)
+        self.assertIn("documentation:open", electron)
+        self.assertIn("documentation:delete", electron)
+        self.assertIn("application/vnd.github.raw+json", electron)
+        self.assertIn("'%PDF-'", electron)
+        self.assertIn("20 * 1024 * 1024", electron)
 
     def test_find_npm_prefers_windows_command_shim(self) -> None:
         locations = {

@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, safeStorage, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
@@ -40,6 +40,20 @@ async function github(endpoint, options = {}) {
     throw error;
   }
   return response.status === 204 ? null : response.json();
+}
+
+async function githubBytes(endpoint) {
+  if (!session?.accessKey) throw new Error('Authentication required.');
+  const response = await fetch(`https://api.github.com${endpoint}`, {
+    headers: { Accept: 'application/vnd.github.raw+json', Authorization: `Bearer ${session.accessKey}`, 'X-GitHub-Api-Version': '2022-11-28' },
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    const error = new Error(body.message || `Bridge request failed (${response.status}).`);
+    error.status = response.status;
+    throw error;
+  }
+  return Buffer.from(await response.arrayBuffer());
 }
 
 async function loadCredentials(event) {
@@ -169,6 +183,49 @@ async function updateBridgeIssue(event, input) {
   return issuePayload(issue);
 }
 
+function documentationPath(id) {
+  const safeId = String(id || '').trim();
+  if (!/^[a-z0-9-]{8,80}$/i.test(safeId)) throw new Error('Invalid documentation identifier.');
+  return `documentation/${safeId}.pdf`;
+}
+
+async function uploadDocumentation(event, input) {
+  trusted(event);
+  const selected = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender), {
+    title: 'Choose a PDF document', properties: ['openFile'], filters: [{ name: 'PDF documents', extensions: ['pdf'] }],
+  });
+  if (selected.canceled || !selected.filePaths[0]) return { canceled: true };
+  const filePath = selected.filePaths[0];
+  const content = await fs.readFile(filePath);
+  if (content.length > 20 * 1024 * 1024) throw new Error('PDF files must be 20 MB or smaller.');
+  if (content.subarray(0, 5).toString() !== '%PDF-') throw new Error('The selected file is not a valid PDF.');
+  const repoPath = documentationPath(input?.id);
+  const result = await github(`/repos/${BRIDGE}/contents/${repoPath}`, {
+    method: 'PUT', body: JSON.stringify({ message: `CROWDNET: add documentation ${String(input?.title || '').slice(0, 100)}`, content: content.toString('base64') }),
+  });
+  return { canceled: false, path: repoPath, sha: result.content.sha, size: content.length, fileName: path.basename(filePath) };
+}
+
+async function openDocumentation(event, input) {
+  trusted(event);
+  const content = await githubBytes(`/repos/${BRIDGE}/contents/${documentationPath(input?.id)}`);
+  const directory = path.join(app.getPath('userData'), 'documentation');
+  const localPath = path.join(directory, `${String(input?.id)}.pdf`);
+  await fs.mkdir(directory, { recursive: true });
+  await fs.writeFile(localPath, content);
+  const error = await shell.openPath(localPath);
+  if (error) throw new Error(error);
+  return { opened: true };
+}
+
+async function deleteDocumentation(event, input) {
+  trusted(event);
+  await github(`/repos/${BRIDGE}/contents/${documentationPath(input?.id)}`, {
+    method: 'DELETE', body: JSON.stringify({ message: `CROWDNET: remove documentation ${String(input?.title || '').slice(0, 100)}`, sha: String(input?.sha || '') }),
+  });
+  return { deleted: true };
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1500, height: 940, minWidth: 900, minHeight: 650, backgroundColor: '#06070c',
@@ -193,6 +250,9 @@ app.whenReady().then(() => {
   ipcMain.handle('github:bridge-issues', listBridgeIssues);
   ipcMain.handle('github:create-bridge-issue', createBridgeIssue);
   ipcMain.handle('github:update-bridge-issue', updateBridgeIssue);
+  ipcMain.handle('documentation:upload', uploadDocumentation);
+  ipcMain.handle('documentation:open', openDocumentation);
+  ipcMain.handle('documentation:delete', deleteDocumentation);
   createWindow();
   app.on('activate', () => BrowserWindow.getAllWindows().length || createWindow());
 });

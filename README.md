@@ -15,6 +15,12 @@ GitHub move into completed tasks and the Databank without a restart. Closed
 pull requests from the repository whose name matches a project remain a second
 source of completed tasks; issues from those target repositories are ignored.
 
+The **Info** tab is a shared documentation library. Members can give a document
+a title and upload a PDF of up to 20 MB; the file is committed to the private
+Bridge under `documentation/`, while its title and audit metadata are kept in
+the synchronized workspace. Documents can be opened with the system PDF viewer
+or removed from both the library and Bridge.
+
 ## Start
 
 Install [Node.js 20+](https://nodejs.org/) and run:
