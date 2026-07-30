@@ -74,6 +74,30 @@ class BootstrapTests(TestCase):
         self.assertIn("githubRef", renderer)
         self.assertIn("sync completed GitHub pull requests", renderer)
 
+    def test_tasks_are_mirrored_exclusively_to_bridge_issues(self) -> None:
+        root = Path(__file__).parent
+        renderer = (root / "app.js").read_text(encoding="utf-8")
+        electron = (root / "main.js").read_text(encoding="utf-8")
+        preload = (root / "preload.js").read_text(encoding="utf-8")
+
+        self.assertIn("/issues?state=all", electron)
+        self.assertIn("/issues/${number}", electron)
+        self.assertIn("!issue.pull_request", electron)
+        self.assertIn("createBridgeIssue", preload)
+        self.assertIn("updateBridgeIssue", preload)
+        self.assertIn("async function syncBridgeIssues", renderer)
+        self.assertIn("GitHub Bridge issue", renderer)
+        self.assertIn("state:completed?'closed':'open'", renderer)
+
+    def test_remote_issue_closure_is_polled_and_persisted_locally(self) -> None:
+        renderer = (Path(__file__).parent / "app.js").read_text(encoding="utf-8")
+
+        self.assertIn("function startBridgeIssuePolling", renderer)
+        self.assertIn("setInterval(async()=>", renderer)
+        self.assertIn("issue.state==='closed'", renderer)
+        self.assertIn("task.status='Completed'", renderer)
+        self.assertIn("queueSave('sync Bridge issues')", renderer)
+
     def test_tasks_are_visually_separated_and_databank_records_follow_lifecycle(self) -> None:
         root = Path(__file__).parent
         renderer = (root / "app.js").read_text(encoding="utf-8")

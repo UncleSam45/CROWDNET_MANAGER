@@ -128,6 +128,47 @@ async function matchCompletedPullRequests(event, input) {
   };
 }
 
+function issuePayload(issue) {
+  return {
+    number: issue.number, title: issue.title, body: issue.body || '', state: issue.state,
+    url: issue.html_url, author: issue.user?.login || 'GitHub contributor',
+    createdAt: issue.created_at, updatedAt: issue.updated_at, closedAt: issue.closed_at,
+  };
+}
+
+async function listBridgeIssues(event) {
+  trusted(event);
+  const issues = [];
+  for (let page = 1; page <= 10; page++) {
+    const batch = await github(`/repos/${BRIDGE}/issues?state=all&sort=updated&direction=desc&per_page=100&page=${page}`);
+    issues.push(...batch.filter(issue => !issue.pull_request).map(issuePayload));
+    if (batch.length < 100) break;
+  }
+  return { repository: BRIDGE, issues };
+}
+
+async function createBridgeIssue(event, input) {
+  trusted(event);
+  const title = String(input?.title || '').trim().slice(0, 256);
+  if (!title) throw new Error('A task title is required.');
+  const issue = await github(`/repos/${BRIDGE}/issues`, {
+    method: 'POST', body: JSON.stringify({ title, body: String(input?.body || '') }),
+  });
+  return issuePayload(issue);
+}
+
+async function updateBridgeIssue(event, input) {
+  trusted(event);
+  const number = Number(input?.number);
+  if (!Number.isSafeInteger(number) || number < 1) throw new Error('A valid Bridge issue number is required.');
+  const body = {};
+  if (input.title !== undefined) body.title = String(input.title).trim().slice(0, 256);
+  if (input.body !== undefined) body.body = String(input.body);
+  if (input.state === 'open' || input.state === 'closed') body.state = input.state;
+  const issue = await github(`/repos/${BRIDGE}/issues/${number}`, { method: 'PATCH', body: JSON.stringify(body) });
+  return issuePayload(issue);
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1500, height: 940, minWidth: 900, minHeight: 650, backgroundColor: '#06070c',
@@ -149,6 +190,9 @@ app.whenReady().then(() => {
   ipcMain.handle('bridge:read', readWorkspace);
   ipcMain.handle('bridge:write', writeWorkspace);
   ipcMain.handle('github:match-completed', matchCompletedPullRequests);
+  ipcMain.handle('github:bridge-issues', listBridgeIssues);
+  ipcMain.handle('github:create-bridge-issue', createBridgeIssue);
+  ipcMain.handle('github:update-bridge-issue', updateBridgeIssue);
   createWindow();
   app.on('activate', () => BrowserWindow.getAllWindows().length || createWindow());
 });

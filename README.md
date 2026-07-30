@@ -6,6 +6,15 @@ operational knowledge, activity, and responsibility. The private
 the application automatically restores and revision-safely saves
 `system/workspace.json` through GitHub's Contents API.
 
+Open tasks are mirrored exclusively to GitHub Issues in that Bridge repository.
+Creating or editing a task creates or updates its linked issue, and completing a
+task closes the issue and preserves the result in the Databank. On restore, the
+manager reconciles both open and closed Bridge issues into the workspace and
+continues polling while the application is active, so issues closed directly on
+GitHub move into completed tasks and the Databank without a restart. Closed
+pull requests from the repository whose name matches a project remain a second
+source of completed tasks; issues from those target repositories are ignored.
+
 ## Start
 
 Install [Node.js 20+](https://nodejs.org/) and run:
