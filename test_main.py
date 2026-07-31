@@ -145,6 +145,29 @@ class BootstrapTests(TestCase):
         self.assertIn(".task-board", styles)
         self.assertIn(".operation-task.is-completed", styles)
 
+    def test_tasks_tab_supports_global_priority_and_owner_grouping(self) -> None:
+        root = Path(__file__).parent
+        renderer = (root / "app.js").read_text(encoding="utf-8")
+        styles = (root / "styles.css").read_text(encoding="utf-8")
+
+        for feature in ("globalTaskOrder", "function bindGlobalTaskReorder", "reorder global task priority", "TASKS BY PERSON", "owner-group"):
+            self.assertIn(feature, renderer)
+        for selector in (".global-task-list", ".owner-workloads", ".owner-group", ".owner-avatar"):
+            self.assertIn(selector, styles)
+
+    def test_tasks_have_animated_status_outlines_everywhere(self) -> None:
+        root = Path(__file__).parent
+        renderer = (root / "app.js").read_text(encoding="utf-8")
+        styles = (root / "styles.css").read_text(encoding="utf-8")
+
+        self.assertIn("function taskGlowClass", renderer)
+        for status_class in ("glow-standby", "glow-progress", "glow-complete"):
+            self.assertIn(status_class, renderer)
+        for surface in ("project-task ${taskGlowClass", "postit ${taskGlowClass", "global-now ${taskGlowClass", "task-dashboard ${taskGlowClass"):
+            self.assertIn(surface, renderer)
+        for feature in (".task-glow", ".task-glow.glow-progress", ".task-glow.glow-complete", "@keyframes taskOutlineScan", "prefers-reduced-motion"):
+            self.assertIn(feature, styles)
+
     def test_info_tab_uploads_and_opens_bridge_backed_pdf_documentation(self) -> None:
         root = Path(__file__).parent
         renderer = (root / "app.js").read_text(encoding="utf-8")
