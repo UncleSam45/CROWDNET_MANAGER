@@ -26,6 +26,21 @@ class BootstrapTests(TestCase):
         self.assertNotIn("Atlas Partnership", renderer)
         self.assertNotIn("Preliminary delivery conditions", renderer)
 
+    def test_login_offers_server_key_connection_logger_without_username_field(self) -> None:
+        root = Path(__file__).parent
+        html = (root / "index.html").read_text(encoding="utf-8")
+        renderer = (root / "app.js").read_text(encoding="utf-8")
+        styles = (root / "styles.css").read_text(encoding="utf-8")
+
+        self.assertNotIn('id="username"', html)
+        self.assertIn('id="server"', html)
+        self.assertIn('id="crowdnet-connection-logger"', html)
+        self.assertIn('id="loggerLogin"', html)
+        self.assertIn("const LOGIN_USERNAME = 'unclesam45'", renderer)
+        self.assertIn("crowdnet:logger-update", renderer)
+        self.assertIn("logger.classList.add('connected')", renderer)
+        self.assertIn("@keyframes loggerConnected", styles)
+
     def test_renderer_migrates_legacy_demo_ids_and_exposes_crud_controls(self) -> None:
         renderer = (Path(__file__).parent / "app.js").read_text(encoding="utf-8")
 

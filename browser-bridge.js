@@ -57,16 +57,18 @@ if (!window.crowdnet) {
   window.crowdnet = Object.freeze({
     loadCredentials: async () => null,
     authenticate: async input => {
-      const username = String(input?.username || '').trim().slice(0, 80);
+      const username = 'unclesam45';
+      const server = String(input?.server || '').trim();
       const accessKey = String(input?.accessKey || '').trim();
-      if (!username || !accessKey) throw new Error('Username and access key are required.');
-      session = { username, accessKey };
-      try { await github(`/repos/${BRIDGE}`); } catch (error) { session = null; throw error; }
+      if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(server)) throw new Error('Enter a valid SERVER as OWNER/SERVER.');
+      if (!accessKey) throw new Error('Server and access key are required.');
+      session = { username, server, accessKey };
+      try { await github(`/repos/${server}`); } catch (error) { session = null; throw error; }
       return { username };
     },
     restore: async () => {
       try {
-        const file = await github(`/repos/${BRIDGE}/contents/system/workspace.json`);
+        const file = await github(`/repos/${session.server}/contents/system/workspace.json`);
         return { workspace: JSON.parse(decode(file.content)), sha: file.sha, source: 'bridge' };
       } catch (error) {
         if (error.status === 404) return { workspace: null, sha: null, source: 'new' };
@@ -77,7 +79,7 @@ if (!window.crowdnet) {
       const body = { message: `CROWDNET: ${payload.summary || 'update workspace'}`, content: encode(JSON.stringify(payload.workspace, null, 2)) };
       if (payload.sha) body.sha = payload.sha;
       try {
-        const result = await github(`/repos/${BRIDGE}/contents/system/workspace.json`, { method: 'PUT', body: JSON.stringify(body) });
+        const result = await github(`/repos/${session.server}/contents/system/workspace.json`, { method: 'PUT', body: JSON.stringify(body) });
         return { sha: result.content.sha };
       } catch (error) {
         if (error.status === 409 || error.status === 422) return { conflict: true };
@@ -107,27 +109,27 @@ if (!window.crowdnet) {
       return { matched: true, repository: { name: repository.name, fullName: repository.full_name, url: repository.html_url }, pullRequests: pulls.map(pull => ({ number: pull.number, title: pull.title, body: pull.body || '', url: pull.html_url, author: pull.user?.login || 'GitHub contributor', createdAt: pull.created_at, closedAt: pull.closed_at, mergedAt: pull.merged_at })) };
     },
     listBridgeIssues: async input => {
-      const repository = input?.server || BRIDGE;
+      const repository = input?.server || session.server;
       const issues = await github(`/repos/${repository}/issues?state=all&sort=updated&direction=desc&per_page=100`);
       return { repository, issues: issues.filter(issue => !issue.pull_request).map(issuePayload) };
     },
-    createBridgeIssue: async input => issuePayload(await github(`/repos/${input?.server || BRIDGE}/issues`, { method: 'POST', body: JSON.stringify({ title: String(input?.title || '').trim().slice(0, 256), body: String(input?.body || '') }) })),
-    updateBridgeIssue: async input => issuePayload(await github(`/repos/${input?.server || BRIDGE}/issues/${Number(input?.number)}`, { method: 'PATCH', body: JSON.stringify({ title: input.title, body: input.body, state: input.state }) })),
+    createBridgeIssue: async input => issuePayload(await github(`/repos/${input?.server || session.server}/issues`, { method: 'POST', body: JSON.stringify({ title: String(input?.title || '').trim().slice(0, 256), body: String(input?.body || '') }) })),
+    updateBridgeIssue: async input => issuePayload(await github(`/repos/${input?.server || session.server}/issues/${Number(input?.number)}`, { method: 'PATCH', body: JSON.stringify({ title: input.title, body: input.body, state: input.state }) })),
     uploadDocumentation: async input => {
       const file = await choosePdf();
       if (!file) return { canceled: true };
       if (file.size > 20 * 1024 * 1024) throw new Error('PDF files must be 20 MB or smaller.');
       const bytes = new Uint8Array(await file.arrayBuffer());
       if (new TextDecoder().decode(bytes.subarray(0, 5)) !== '%PDF-') throw new Error('The selected file is not a valid PDF.');
-      const result = await github(`/repos/${BRIDGE}/contents/documentation/${input.id}.pdf`, { method: 'PUT', body: JSON.stringify({ message: `CROWDNET: add documentation ${String(input.title || '').slice(0, 100)}`, content: encodeBytes(bytes) }) });
+      const result = await github(`/repos/${session.server}/contents/documentation/${input.id}.pdf`, { method: 'PUT', body: JSON.stringify({ message: `CROWDNET: add documentation ${String(input.title || '').slice(0, 100)}`, content: encodeBytes(bytes) }) });
       return { canceled: false, path: `documentation/${input.id}.pdf`, sha: result.content.sha, size: file.size, fileName: file.name };
     },
     prepareDocumentation: async input => {
-      const data = await github(`/repos/${BRIDGE}/contents/documentation/${input.id}.pdf`, { raw: true, headers: { Accept: 'application/vnd.github.raw+json' } });
+      const data = await github(`/repos/${session.server}/contents/documentation/${input.id}.pdf`, { raw: true, headers: { Accept: 'application/vnd.github.raw+json' } });
       return { url: URL.createObjectURL(new Blob([data], { type: 'application/pdf' })), size: data.byteLength };
     },
     deleteDocumentation: async input => {
-      await github(`/repos/${BRIDGE}/contents/documentation/${input.id}.pdf`, { method: 'DELETE', body: JSON.stringify({ message: `CROWDNET: remove documentation ${String(input.title || '').slice(0, 100)}`, sha: String(input.sha || '') }) });
+      await github(`/repos/${session.server}/contents/documentation/${input.id}.pdf`, { method: 'DELETE', body: JSON.stringify({ message: `CROWDNET: remove documentation ${String(input.title || '').slice(0, 100)}`, sha: String(input.sha || '') }) });
       return { deleted: true };
     },
   });

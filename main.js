@@ -68,15 +68,17 @@ async function loadCredentials(event) {
 
 async function authenticate(event, input) {
   trusted(event);
-  const username = String(input?.username || '').trim().slice(0, 80);
+  const username = 'unclesam45';
+  const server = String(input?.server || '').trim();
   const accessKey = String(input?.accessKey || '').trim();
-  if (!username || !accessKey) throw new Error('Username and access key are required.');
-  session = { username, accessKey };
-  try { await github(`/repos/${BRIDGE}`); } catch (error) { session = null; throw error; }
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(server)) throw new Error('Enter a valid SERVER as OWNER/SERVER.');
+  if (!accessKey) throw new Error('Server and access key are required.');
+  session = { username, server, accessKey };
+  try { await github(`/repos/${server}`); } catch (error) { session = null; throw error; }
   if (input.remember) {
     if (!safeStorage.isEncryptionAvailable()) throw new Error('Secure credential storage is unavailable.');
     await fs.mkdir(path.dirname(credentialsPath()), { recursive: true });
-    await fs.writeFile(credentialsPath(), safeStorage.encryptString(JSON.stringify({ username, accessKey })), { mode: 0o600 });
+    await fs.writeFile(credentialsPath(), safeStorage.encryptString(JSON.stringify({ server, accessKey })), { mode: 0o600 });
   } else await fs.rm(credentialsPath(), { force: true });
   return { username };
 }
@@ -84,7 +86,7 @@ async function authenticate(event, input) {
 async function readWorkspace(event) {
   trusted(event);
   try {
-    const file = await github(`/repos/${BRIDGE}/contents/system/workspace.json`);
+    const file = await github(`/repos/${session.server}/contents/system/workspace.json`);
     const workspace = JSON.parse(Buffer.from(file.content, 'base64').toString('utf8'));
     await fs.writeFile(cachePath(), JSON.stringify({ sha: file.sha, workspace }));
     return { workspace, sha: file.sha, source: 'bridge' };
@@ -100,7 +102,7 @@ async function writeWorkspace(event, payload) {
   const body = { message: `CROWDNET: ${payload.summary || 'update workspace'}`, content: Buffer.from(JSON.stringify(payload.workspace, null, 2)).toString('base64') };
   if (payload.sha) body.sha = payload.sha;
   try {
-    const result = await github(`/repos/${BRIDGE}/contents/system/workspace.json`, { method: 'PUT', body: JSON.stringify(body) });
+    const result = await github(`/repos/${session.server}/contents/system/workspace.json`, { method: 'PUT', body: JSON.stringify(body) });
     const sha = result.content.sha;
     await fs.writeFile(cachePath(), JSON.stringify({ sha, workspace: payload.workspace }));
     return { sha };
@@ -111,8 +113,8 @@ async function writeWorkspace(event, payload) {
   }
 }
 
-function serverName(value = BRIDGE) {
-  const name = String(value || BRIDGE);
+function serverName(value = session?.server || BRIDGE) {
+  const name = String(value || session?.server || BRIDGE);
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]*bridge[A-Za-z0-9_.-]*$/i.test(name)) throw new Error('Invalid project server.');
   return name;
 }
@@ -243,7 +245,7 @@ async function uploadDocumentation(event, input) {
   if (content.length > 20 * 1024 * 1024) throw new Error('PDF files must be 20 MB or smaller.');
   if (content.subarray(0, 5).toString() !== '%PDF-') throw new Error('The selected file is not a valid PDF.');
   const repoPath = documentationPath(input?.id);
-  const result = await github(`/repos/${BRIDGE}/contents/${repoPath}`, {
+  const result = await github(`/repos/${session.server}/contents/${repoPath}`, {
     method: 'PUT', body: JSON.stringify({ message: `CROWDNET: add documentation ${String(input?.title || '').slice(0, 100)}`, content: content.toString('base64') }),
   });
   return { canceled: false, path: repoPath, sha: result.content.sha, size: content.length, fileName: path.basename(filePath) };
@@ -251,7 +253,7 @@ async function uploadDocumentation(event, input) {
 
 async function prepareDocumentation(event, input) {
   trusted(event);
-  const content = await githubBytes(`/repos/${BRIDGE}/contents/${documentationPath(input?.id)}`);
+  const content = await githubBytes(`/repos/${session.server}/contents/${documentationPath(input?.id)}`);
   if (content.length > 20 * 1024 * 1024 || content.subarray(0, 5).toString() !== '%PDF-') throw new Error('The Bridge file is not a valid supported PDF.');
   const token = crypto.randomUUID();
   const expiresAt = Date.now() + 10 * 60 * 1000;
@@ -269,7 +271,7 @@ function servePreparedDocument(request) {
 
 async function deleteDocumentation(event, input) {
   trusted(event);
-  await github(`/repos/${BRIDGE}/contents/${documentationPath(input?.id)}`, {
+  await github(`/repos/${session.server}/contents/${documentationPath(input?.id)}`, {
     method: 'DELETE', body: JSON.stringify({ message: `CROWDNET: remove documentation ${String(input?.title || '').slice(0, 100)}`, sha: String(input?.sha || '') }),
   });
   return { deleted: true };
