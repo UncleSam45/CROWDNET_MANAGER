@@ -35,7 +35,7 @@ async function restore(){syncStatus('saving','RESTORING');try{const result=await
 
 const LOGIN_USERNAME = 'unclesam45';
 const logger = $('#crowdnet-connection-logger');
-function updateLoginFields({server,accessKey}={}){for(const form of [$('#login'),$('#loggerLogin')]){if(server!==undefined)form.elements.server.value=String(server??'');if(accessKey!==undefined)form.elements.accessKey.value=String(accessKey??'')}}
+function updateLoginFields({server,accessKey,storage}={}){for(const form of [$('#login'),$('#loggerLogin')]){if(server!==undefined)form.elements.server.value=String(server??'');if(accessKey!==undefined)form.elements.accessKey.value=String(accessKey??'')}if(storage!==undefined&&$('#loggerLogin').elements.storage)$('#loggerLogin').elements.storage.value=String(storage??'')}
 async function connect({server,accessKey,remember=false},output){
   $('#loginMessage').textContent='';$('#loggerMessage').textContent='';output.textContent='VERIFYING PRIVATE SERVER…';
   try{const result=await window.crowdnet.authenticate({username:LOGIN_USERNAME,server,accessKey,remember});user=result.username;logger.classList.add('connected');output.textContent='CONNECTION CONFIRMED';try{availableServers=(await window.crowdnet.listServers()).servers||[]}catch{availableServers=[]}await new Promise(resolve=>setTimeout(resolve,650));$('#auth').classList.add('hidden');$('#loader').classList.remove('hidden');setTimeout(()=>$('#loadStep').textContent='Restoring workspace and server tasks…',400);const loaded=await window.crowdnet.restore();const cleaned=cleanWorkspace(loaded.workspace||state);state=cleaned.workspace;sha=loaded.sha;await hydrateProjectServers();reconcileCompletedTasks();if(loaded.source==='bridge')await syncBridgeIssues();startBridgeIssuePolling();setTimeout(()=>{$('#loader').classList.add('hidden');$('#app').classList.remove('hidden');$('#currentUser').textContent=user.toUpperCase();$('#avatar').textContent=user[0].toUpperCase();render();if(cleaned.removed&&loaded.source==='bridge')queueSave('remove legacy demo records')},750)}catch(error){logger.classList.remove('connected');output.textContent=error.message}
@@ -44,7 +44,7 @@ $('#login').addEventListener('submit',event=>{event.preventDefault();connect({se
 const loggerLogin=$('#loggerLogin');
 loggerLogin.addEventListener('submit',event=>{event.preventDefault();const form=event.currentTarget;updateLoginFields({server:form.elements.server.value,accessKey:form.elements.accessKey.value});connect({server:form.elements.server.value,accessKey:form.elements.accessKey.value,remember:$('#remember').checked},$('#loggerMessage'))});
 loggerLogin.addEventListener('keydown',event=>{if(event.key!=='Enter'||event.isComposing||event.repeat||event.altKey||event.ctrlKey||event.metaKey||event.shiftKey||!event.target.matches('input'))return;event.preventDefault();loggerLogin.requestSubmit()});
-window.crowdnetLogger=Object.freeze({element:logger,update:updateLoginFields,clear:()=>updateLoginFields({server:'',accessKey:''})});
+window.crowdnetLogger=Object.freeze({element:logger,update:updateLoginFields,clear:()=>updateLoginFields({server:'',accessKey:'',storage:''})});
 window.addEventListener('crowdnet:logger-update',event=>updateLoginFields(event.detail));
 window.crowdnet.loadCredentials().then(saved=>{if(saved){updateLoginFields(saved);$('#remember').checked=true}});
 $('#restore').onclick=restore; $('#newProject').onclick=projectDialog;
