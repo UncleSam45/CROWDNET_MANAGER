@@ -39,6 +39,8 @@ class BootstrapTests(TestCase):
         self.assertIn("const LOGIN_USERNAME = 'unclesam45'", renderer)
         self.assertIn("crowdnet:logger-update", renderer)
         self.assertIn("logger.classList.add('connected')", renderer)
+        self.assertIn("loggerLogin.addEventListener('keydown'", renderer)
+        self.assertIn("loggerLogin.requestSubmit()", renderer)
         self.assertIn("@keyframes loggerConnected", styles)
 
     def test_renderer_migrates_legacy_demo_ids_and_exposes_crud_controls(self) -> None:
